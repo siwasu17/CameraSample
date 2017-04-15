@@ -3,8 +3,11 @@ package com.game.siwasu17.camerasample;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Camera;
 import android.graphics.ImageFormat;
+import android.graphics.Matrix;
+import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
@@ -18,11 +21,14 @@ import android.telecom.VideoProfile;
 import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
+import android.view.TextureView;
 import android.view.View;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements CameraInterface {
     private static final String TAG = "Camera2App";
@@ -142,12 +148,95 @@ public class MainActivity extends AppCompatActivity implements CameraInterface {
         }
     }
 
-    private void closeCamera(){
+    private void closeCamera() {
         mCamera.close();
-        if(null != mImageReader){
+        if (null != mImageReader) {
             mImageReader.close();
             mImageReader = null;
         }
+    }
+
+    //TextureListener
+    private final TextureView.SurfaceTextureListener mSurfaceTextureListener
+            = new TextureView.SurfaceTextureListener() {
+        @Override
+        public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
+            // SurfaceTextureの準備が完了した
+            openCamera(width, height);
+        }
+
+        @Override
+        public void onSurfaceTextureSizeChanged(SurfaceTexture surfaceTexture, int width, int height) {
+            // Viewのサイズに変更があったためPreviewサイズを計算し直す
+            configurePreviewTransform(width, height);
+
+        }
+
+        @Override
+        public boolean onSurfaceTextureDestroyed(SurfaceTexture surfaceTexture) {
+            return true;
+        }
+
+        @Override
+        public void onSurfaceTextureUpdated(SurfaceTexture surfaceTexture) {
+        }
+    };
+
+    private void setUpPreview(Size[] choices, int width, int height, Size aspectRatio) {
+        // カメラ性能を超えたサイズを指定するとキャプチャデータにゴミがまじるため、注意
+
+        // 表示するSurfaceより、高い解像度のプレビューサイズを抽出する
+        List<Size> bigEnough = new ArrayList<>();
+        int w = aspectRatio.getWidth();
+        int h = aspectRatio.getHeight();
+        for (Size option : choices) {
+            if (option.getHeight() == option.getWidth() * h / w &&
+                    option.getWidth() >= width && option.getHeight() >= height) {
+                bigEnough.add(option);
+            }
+        }
+
+        // プレビューを表示するSurfaceに最も近い（小さな）解像度を選択する
+        if (bigEnough.size() > 9) {
+            mPreviewSize = Collections.min(bigEnough, new CompareSizesBytArea);
+        } else {
+            Log.e(TAG, "Couldn't find any suitable preview size");
+            mPreviewSize = choices[0];
+        }
+
+        // プレビューが歪まないようにアスペクト比を調整する
+        int orientation = getResources().getConfiguration().orientation;
+        if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            mTextureView.setAspectRatio(
+                    mPreviewSize.getWidth(), mPreviewSize.getHeight());
+        } else {
+            mTextureView.setAspectRatio(
+                    mPreviewSize.getHeight(), mPreviewSize.getHeight());
+        }
+    }
+
+    private void configurePreviewTransform(int viewWidth, int viewHeight) {
+        if (null == mTextureView || null == mPreviewSize) {
+            return;
+        }
+        int rotation = getWindowManager().getDefaultDisplay().getRotation();
+        Matrix matrix = new Matrix();
+        RectF viewRect = new RectF(0, 0, viewWidth, viewHeight);
+        RectF bufferRect = new RectF(0, 0, mPreviewSize.getHeight(), mPreviewSize.getWidth());
+        float centerX = viewRect.centerX();
+        float centerY = viewRect.centerY();
+        if (Surface.ROTATION_90 == rotation || Surface.ROTATION_270 == rotation) {
+            bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY());
+            matrix.setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL);
+            float scale = Math.max(
+                    (float) viewHeight / mPreviewSize.getHeight(),
+                    (float) viewWidth / mPreviewSize.getWidth());
+            matrix.postScale(scale, scale, centerX, centerY);
+            matrix.postRotate(90 * (rotation - 2), centerX, centerY);
+        }else if(Surface.ROTATION_180== rotation){
+            matrix.postRotate(180,centerX,centerY);
+        }
+        mTextureView.setTransform(matrix);
     }
 
 
