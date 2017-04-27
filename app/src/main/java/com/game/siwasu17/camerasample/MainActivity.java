@@ -1,10 +1,12 @@
 package com.game.siwasu17.camerasample;
 
 import android.Manifest;
+import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
-import android.graphics.Camera;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.graphics.RectF;
@@ -15,9 +17,7 @@ import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.ImageReader;
 import android.os.Handler;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.telecom.VideoProfile;
 import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
@@ -28,9 +28,10 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements CameraInterface {
+public class MainActivity extends Activity implements CameraInterface {
     private static final String TAG = "Camera2App";
     private int REQUEST_CODE_CAMERA_PERMISSION = 0x01;
 
@@ -49,6 +50,7 @@ public class MainActivity extends AppCompatActivity implements CameraInterface {
         mTextureView = (AutoFitTextureView) findViewById(R.id.texture);
         mThread = new BackgroundThreadHelper();
         mCamera = new BasicCamera();
+        mCamera.setInterface(this);
         findViewById(R.id.picture).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -99,7 +101,7 @@ public class MainActivity extends AppCompatActivity implements CameraInterface {
                 // 最大サイズでキャプチャする
                 Size largest = Collections.max(
                         Arrays.asList(map.getOutputSizes(ImageFormat.JPEG)),
-                        new CompareSizeByArea());
+                        new CompareSizesByArea());
                 setUpPreview(map.getOutputSizes(SurfaceTexture.class),
                         width, height, largest);
                 configurePreviewTransform(width, height);
@@ -197,8 +199,8 @@ public class MainActivity extends AppCompatActivity implements CameraInterface {
         }
 
         // プレビューを表示するSurfaceに最も近い（小さな）解像度を選択する
-        if (bigEnough.size() > 9) {
-            mPreviewSize = Collections.min(bigEnough, new CompareSizesBytArea);
+        if (bigEnough.size() > 0) {
+            mPreviewSize = Collections.min(bigEnough, new CompareSizesByArea());
         } else {
             Log.e(TAG, "Couldn't find any suitable preview size");
             mPreviewSize = choices[0];
@@ -233,35 +235,92 @@ public class MainActivity extends AppCompatActivity implements CameraInterface {
                     (float) viewWidth / mPreviewSize.getWidth());
             matrix.postScale(scale, scale, centerX, centerY);
             matrix.postRotate(90 * (rotation - 2), centerX, centerY);
-        }else if(Surface.ROTATION_180== rotation){
-            matrix.postRotate(180,centerX,centerY);
+        } else if (Surface.ROTATION_180 == rotation) {
+            matrix.postRotate(180, centerX, centerY);
         }
         mTextureView.setTransform(matrix);
     }
 
+    // Parmission handling for Android 6.0
+    private void requestCameraPermission() {
+        if (shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
+            // 権限チェックした結果、持っていない場合はダイアログを出す
+            new AlertDialog.Builder(this)
+                    .setMessage("Request Permission")
+                    .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            requestPermissions(new String[]{Manifest.permission.CAMERA},
+                                    REQUEST_CODE_CAMERA_PERMISSION);
+                        }
+                    })
+                    .setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            finish();
+                        }
+                    })
+                    .create();
+            return;
+        }
+
+        //権限を取得する
+        requestPermissions(new String[]{Manifest.permission.CAMERA}, REQUEST_CODE_CAMERA_PERMISSION);
+        return;
+    }
+
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        if (requestCode == REQUEST_CODE_CAMERA_PERMISSION) {
+            if (grantResults.length != 1 || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+                new AlertDialog.Builder(this)
+                        .setMessage("Need Camera Permission")
+                        .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialogInterface, int i) {
+                                finish();
+                            }
+                        })
+                        .create();
+            }
+            return;
+        }
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
 
     @Override
     public SurfaceTexture getSurfaceTextureFromTextureView() {
-        return null;
+        return mTextureView.getSurfaceTexture();
     }
 
     @Override
     public Size getPreviewSize() {
-        return null;
+        return mPreviewSize;
     }
 
     @Override
     public Handler getBackgroundHandler() {
-        return null;
+        return mThread.getmHandler();
     }
 
     @Override
     public Surface getImageRenderSurface() {
-        return null;
+        return mImageReader.getSurface();
     }
 
     @Override
     public int getRotation() {
-        return 0;
+        return getWindowManager().getDefaultDisplay().getRotation();
+    }
+
+    /**
+     * Compares two {@code Size}s based on their areas.
+     */
+    static class CompareSizesByArea implements Comparator<Size> {
+        @Override
+        public int compare(Size lhs, Size rhs) {
+            return Long.signum((long) lhs.getWidth() * lhs.getHeight() - (long) rhs.getWidth() * rhs.getHeight());
+        }
     }
 }
