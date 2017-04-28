@@ -19,7 +19,7 @@ public class BackgroundThreadHelper {
         mHandler = new Handler(mThread.getLooper());
     }
 
-    public Handler getmHandler(){
+    public Handler getHandler(){
         if(mHandler == null){
             Log.e(TAG,"Background thread Error mHandler null");
         }

@@ -113,10 +113,10 @@ public class MainActivity extends Activity implements CameraInterface {
                             @Override
                             public void onImageAvailable(ImageReader imageReader) {
                                 File file = new File(getExternalFilesDir(null), "pic.jpeg");
-                                mThread.getmHandler().post(new ImageStore(imageReader.acquireNextImage(), file));
+                                mThread.getHandler().post(new ImageStore(imageReader.acquireNextImage(), file));
 
                             }
-                        }, mThread.getmHandler());
+                        }, mThread.getHandler());
                 return cameraId;
             }
         } catch (CameraAccessException e) {
@@ -142,7 +142,7 @@ public class MainActivity extends Activity implements CameraInterface {
             if (!mCamera.isLocked()) {
                 throw new RuntimeException("Time out waiting to lock camera opening.");
             }
-            manager.openCamera(cameraId, mCamera.stateCallback, mThread.getmHandler());
+            manager.openCamera(cameraId, mCamera.stateCallback, mThread.getHandler());
         } catch (CameraAccessException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
@@ -301,7 +301,7 @@ public class MainActivity extends Activity implements CameraInterface {
 
     @Override
     public Handler getBackgroundHandler() {
-        return mThread.getmHandler();
+        return mThread.getHandler();
     }
 
     @Override
