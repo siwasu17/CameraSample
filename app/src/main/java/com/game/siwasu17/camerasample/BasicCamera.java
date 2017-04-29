@@ -126,6 +126,9 @@ public class BasicCamera {
                                 // 露出、フラッシュは自動モードを仕様する
                                 mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE,
                                         CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
+                                //エフェクトを掛けてみる
+                                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_EFFECT_MODE,
+                                        CaptureRequest.CONTROL_EFFECT_MODE_NEGATIVE);
 
                                 // カメラプレビューを開始する（ここでは開始要求のみ）
                                 mPreviewRequest = mPreviewRequestBuilder.build();
