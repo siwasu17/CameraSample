@@ -297,7 +297,7 @@ public class BasicCamera {
 
             // プレビューを継続するためsetRepeatingRequestメソッドを実行する
             mState = STATE_PREVIEW;
-            mCaptureSession.capture(mPreviewRequest, mCaptureCallback,
+            mCaptureSession.setRepeatingRequest(mPreviewRequest, mCaptureCallback,
                     mInterface.getBackgroundHandler());
         } catch (CameraAccessException e) {
             e.printStackTrace();
